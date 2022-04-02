@@ -21,7 +21,7 @@ set(CMAKE_ASM_NASM_FLAGS_RELWITHDEBINFO_INIT "-g")
 # environment variable.  This should happen automatically, but unfortunately
 # enable_language(ASM_NASM) doesn't parse the ASM_NASM environment variable
 # until after CMAKE_ASM_NASM_COMPILER has been populated with the results of
-# searching for NASM or Yasm in the PATH.
+# searching for NASM or YASM in the PATH.
 if(NOT DEFINED CMAKE_ASM_NASM_COMPILER AND DEFINED ENV{ASM_NASM})
   set(CMAKE_ASM_NASM_COMPILER $ENV{ASM_NASM})
 endif()
@@ -258,30 +258,28 @@ endif()
 check_c_source_compiles("
   #include <arm_neon.h>
   int main(int argc, char **argv) {
-    int16_t input[] = {
+    const int16_t input[] = {
       (int16_t)argc, (int16_t)argc, (int16_t)argc, (int16_t)argc,
       (int16_t)argc, (int16_t)argc, (int16_t)argc, (int16_t)argc,
       (int16_t)argc, (int16_t)argc, (int16_t)argc, (int16_t)argc
     };
     int16x4x3_t output = vld1_s16_x3(input);
-    vst3_s16(input, output);
-    return (int)input[0];
+    return (int)output.val[0][0];
   }" HAVE_VLD1_S16_X3)
 check_c_source_compiles("
   #include <arm_neon.h>
   int main(int argc, char **argv) {
-    uint16_t input[] = {
+    const uint16_t input[] = {
       (uint16_t)argc, (uint16_t)argc, (uint16_t)argc, (uint16_t)argc,
       (uint16_t)argc, (uint16_t)argc, (uint16_t)argc, (uint16_t)argc
     };
     uint16x4x2_t output = vld1_u16_x2(input);
-    vst2_u16(input, output);
-    return (int)input[0];
+    return (int)output.val[0][0];
   }" HAVE_VLD1_U16_X2)
 check_c_source_compiles("
   #include <arm_neon.h>
   int main(int argc, char **argv) {
-    uint8_t input[] = {
+    const uint8_t input[] = {
       (uint8_t)argc, (uint8_t)argc, (uint8_t)argc, (uint8_t)argc,
       (uint8_t)argc, (uint8_t)argc, (uint8_t)argc, (uint8_t)argc,
       (uint8_t)argc, (uint8_t)argc, (uint8_t)argc, (uint8_t)argc,
@@ -300,8 +298,7 @@ check_c_source_compiles("
       (uint8_t)argc, (uint8_t)argc, (uint8_t)argc, (uint8_t)argc
     };
     uint8x16x4_t output = vld1q_u8_x4(input);
-    vst4q_u8(input, output);
-    return (int)input[0];
+    return (int)output.val[0][0];
   }" HAVE_VLD1Q_U8_X4)
 if(BITS EQUAL 32)
   unset(CMAKE_REQUIRED_FLAGS)
@@ -523,6 +520,45 @@ set_source_files_properties(${SIMD_SOURCES} PROPERTIES
   COMPILE_FLAGS -maltivec)
 
 add_library(simd OBJECT ${SIMD_SOURCES} powerpc/jsimd.c)
+
+if(CMAKE_POSITION_INDEPENDENT_CODE OR ENABLE_SHARED)
+  set_target_properties(simd PROPERTIES POSITION_INDEPENDENT_CODE 1)
+endif()
+
+###############################################################################
+# RVV 64-bit (Intrinsics)
+###############################################################################
+
+elseif(CPU_TYPE STREQUAL "riscv64")
+
+set(CMAKE_REQUIRED_FLAGS "-march=rv64gcv_zfh")
+
+check_c_source_compiles("
+  #include <riscv_vector.h>
+  int main(void) {
+    const float src[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    vfloat32m1_t val = vle32_v_f32m1((const float*)(src), 4);
+    return (int)vfmv_f_s_f32m1_f32(val);
+  }" HAVE_RVV)
+
+unset(CMAKE_REQUIRED_FLAGS)
+
+if(NOT HAVE_RVV)
+  simd_fail("SIMD extensions not available for this CPU (riscv64)")
+  return()
+endif()
+
+set(SIMD_SOURCES rvv/jccolor-rvv.c rvv/jcgray-rvv.c
+  rvv/jcsample-rvv.c rvv/jdcolor-rvv.c
+  rvv/jdmerge-rvv.c rvv/jdsample-rvv.c
+  rvv/jfdctfst-rvv.c rvv/jfdctint-rvv.c
+  rvv/jidctfst-rvv.c rvv/jidctint-rvv.c
+  rvv/jquanti-rvv.c)
+
+set_source_files_properties(${SIMD_SOURCES} PROPERTIES
+  COMPILE_FLAGS -march=rv64gcv_zfh)
+
+add_library(simd OBJECT ${SIMD_SOURCES} rvv/jsimd.c)
 
 if(CMAKE_POSITION_INDEPENDENT_CODE OR ENABLE_SHARED)
   set_target_properties(simd PROPERTIES POSITION_INDEPENDENT_CODE 1)
