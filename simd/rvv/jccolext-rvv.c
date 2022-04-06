@@ -29,11 +29,12 @@ void jsimd_rgb_ycc_convert_rvv(JDIMENSION img_width, JSAMPARRAY input_buf,
                                JDIMENSION output_row, int num_rows)
 {
     JSAMPROW inptr, outptr0, outptr1, outptr2;
-    vuint16m4_t r, g, b, y, tmp;
+    vuint16m4_t r, g, b, y;
+    vuint32m8_t tmp0, tmp1;
 #if BITS_IN_JSAMPLE == 8
     vuint8m2_t dest, src;
 #endif
-    size_t pitch = img_width * RGB_PIXELSIZE, num_cols = pitch, i;
+    size_t pitch = img_width * RGB_PIXELSIZE, num_cols, i;
 
 
     while (--num_rows >= 0)
@@ -45,6 +46,7 @@ void jsimd_rgb_ycc_convert_rvv(JDIMENSION img_width, JSAMPARRAY input_buf,
         output_row++;
 
 
+        num_cols = pitch;
         while (num_cols > 0)
         {
             /* Set vl for each iteration. */
@@ -74,50 +76,60 @@ void jsimd_rgb_ycc_convert_rvv(JDIMENSION img_width, JSAMPARRAY input_buf,
             * Cr =  0.50000 * R - 0.41869 * G - 0.08131 * B + CENTERJSAMPLE
             */
             /* Calculate Y values */
-            y = vmulhu_vx_u16m4(r, F_0_299, vl);
-            tmp = vmulhu_vx_u16m4(g, F_0_587, vl);
-            y = vadd_vv_u16m4(y, tmp, vl);
-            tmp = vmulhu_vx_u16m4(b, F_0_114, vl);
-            y = vadd_vv_u16m4(y, tmp, vl);
+            tmp0 = vwmulu_vx_u32m8(r, F_0_299, vl);
+            tmp0 = vwmaccu_vx_u32m8(tmp0, F_0_587, g, vl);
+            tmp0 = vwmaccu_vx_u32m8(tmp0, F_0_114, b, vl);
+            /* Proper rounding. */
+            tmp0 = vadd_vx_u32m8(tmp0, ONE_HALF, vl);
+            y = vnsrl_wx_u16m4(tmp0, SCALEBITS, vl);
             /* TODO: Figure out whether big-endian or little-endian would be different. */
 #if BITS_IN_JSAMPLE == 8
-            dest = vnsrl_wx_u8m2(y, 0, vl);                    /* Narrowing from 16-bit to 8-bit. */
+            dest = vnsrl_wx_u8m2(y, 0, vl); /* Narrowing from 16-bit to 8-bit. */
             vse8_v_u8m2(outptr0, dest, vl);
-#else   /* BITS_IN_JSAMPLE == 12 */
+#else /* BITS_IN_JSAMPLE == 12 */
             vse16_v_u16m4(outptr0, y, vl);
 #endif
 
             /* Calculate Cb values */
-            y = vmulhu_vx_u16m4(b, F_0_500, vl);
-            y = vadd_vx_u16m4(y, CENTERJSAMPLE, vl);
-            tmp = vmulhu_vx_u16m4(g, F_0_331, vl);
-            y = vsub_vv_u16m4(y, tmp, vl);
-            tmp = vmulhu_vx_u16m4(r, F_0_168, vl);
-            y = vsub_vv_u16m4(y, tmp, vl);
+            tmp0 = vwmulu_vx_u32m8(b, F_0_500, vl);
+            tmp0 = vadd_vx_u32m8(tmp0, SCALED_CENTERJSAMPLE, vl);
+            tmp1 = vwmulu_vx_u32m8(g, F_0_331, vl);
+            tmp0 = vsub_vv_u32m8(tmp0, tmp1, vl);
+            tmp1 = vwmulu_vx_u32m8(r, F_0_168, vl);
+            tmp0 = vsub_vv_u32m8(tmp0, tmp1, vl);
+            /* Proper rounding. */
+            tmp0 = vadd_vx_u32m8(tmp0, ONE_HALF - 1, vl);
+            y = vnsrl_wx_u16m4(tmp0, SCALEBITS, vl);
             /* TODO: Figure out whether big-endian or little-endian would be different. */
 #if BITS_IN_JSAMPLE == 8
-            dest = vnsrl_wx_u8m2(y, 0, vl);                    /* Narrowing from 16-bit to 8-bit. */
+            dest = vnsrl_wx_u8m2(y, 0, vl); /* Narrowing from 16-bit to 8-bit. */
             vse8_v_u8m2(outptr1, dest, vl);
-#else   /* BITS_IN_JSAMPLE == 12 */
+#else /* BITS_IN_JSAMPLE == 12 */
             vse16_v_u16m4(outptr1, y, vl);
 #endif
 
             /* Calculate Cr values */
-            y = vmulhu_vx_u16m4(r, F_0_500, vl);
-            /* TODO: Figure out the situation when CENTERJSAMPLE=2048. */
-            y = vadd_vx_u16m4(y, CENTERJSAMPLE, vl);
-            tmp = vmulhu_vx_u16m4(g, F_0_418, vl);
-            y = vsub_vv_u16m4(y, tmp, vl);
-            tmp = vmulhu_vx_u16m4(b, F_0_081, vl);
-            y = vsub_vv_u16m4(y, tmp, vl);
+            tmp0 = vwmulu_vx_u32m8(r, F_0_500, vl);
+            tmp0 = vadd_vx_u32m8(tmp0, SCALED_CENTERJSAMPLE, vl);
+            tmp1 = vwmulu_vx_u32m8(g, F_0_418, vl);
+            tmp0 = vsub_vv_u32m8(tmp0, tmp1, vl);
+            tmp1 = vwmulu_vx_u32m8(b, F_0_081, vl);
+            tmp0 = vsub_vv_u32m8(tmp0, tmp1, vl);
+            /* Proper rounding. */
+            tmp0 = vadd_vx_u32m8(tmp0, ONE_HALF - 1, vl);
+            y = vnsrl_wx_u16m4(tmp0, SCALEBITS, vl);
             /* TODO: Figure out whether big-endian or little-endian would be different. */
 #if BITS_IN_JSAMPLE == 8
-            dest = vnsrl_wx_u8m2(y, 0, vl);                    /* Narrowing from 16-bit to 8-bit. */
+            dest = vnsrl_wx_u8m2(y, 0, vl); /* Narrowing from 16-bit to 8-bit. */
             vse8_v_u8m2(outptr2, dest, vl);
-#else   /* BITS_IN_JSAMPLE == 12 */
+#else /* BITS_IN_JSAMPLE == 12 */
             vse16_v_u16m4(outptr2, y, vl);
 #endif
 
+            // for (int i = 0; i < vl; i++) {
+            //     printf("r%d/g%d/b%d -> ", inptr[i * RGB_PIXELSIZE + RGB_RED], inptr[i * RGB_PIXELSIZE + RGB_GREEN], inptr[i * RGB_PIXELSIZE + RGB_BLUE]);
+            //     printf("y%d/cb%d/cr%d\n", outptr0[i], outptr1[i], outptr2[i]);
+            // }
 
             /* Move the pointer to the right place. */
             inptr += cols;

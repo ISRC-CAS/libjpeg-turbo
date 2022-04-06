@@ -24,10 +24,15 @@
 #include "jsimd_rvv.h"
 
 /* YCbCr --> RGB conversion constants */
-#define F_0_344  22554              /* FIX(0.34414) */
-#define F_0_714  46802              /* FIX(0.71414) */
-#define F_0_772  50594              /* FIX(0.77200) */
-#define F_0_402  26345              /* FIX(0.40200) */
+#define F_0_344  22554                      /* FIX(0.34414) */
+#define F_0_714  46802                      /* FIX(0.71414) */
+#define F_0_772  50594                      /* FIX(0.77200) */
+#define F_0_228  (65536 - F_0_772)          /* FIX(0.77200) */
+#define F_0_402  26345                      /* FIX(0.40200) */
+#define F_0_285 (65536 - F_0_714)           /* FIX(1) - FIX(0.71414) */
+
+#define SCALEBITS  16
+#define ONE_HALF  (1 << (SCALEBITS - 1))
 
 
 #include "jdcolext-rvv.c"

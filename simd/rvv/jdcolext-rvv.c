@@ -29,13 +29,17 @@ void jsimd_ycc_rgb_convert_rvv(JDIMENSION out_width, JSAMPIMAGE input_buf,
                                int num_rows)
 {
     JSAMPROW outptr, inptr0, inptr1, inptr2;
-    vuint16m4_t y, cb, cr, r, tmp;
+    vuint16m4_t y, cb, cr;
+    vint32m8_t tmp0, tmp1;                /* '32' stands for '32-bit' here */
+    vint16m4_t sy, scb, scr, r, tmp;                 /* 's' stands for 'signed' here */
+    vbool4_t mask;
 #if BITS_IN_JSAMPLE == 8
-    vuint8m2_t dest, src;
+    vuint8m2_t src;
+    vint8m2_t dest;
 #endif
-    size_t pitch = out_width * RGB_PIXELSIZE, num_cols = pitch, 
+    size_t pitch = out_width * RGB_PIXELSIZE, num_cols, 
            cols, i, vl;
-    vl = vsetvl_e16m4(num_cols);
+    vl = vsetvl_e16m4(pitch);
     ptrdiff_t bstride;
 
     /* Constants. */
@@ -58,6 +62,7 @@ void jsimd_ycc_rgb_convert_rvv(JDIMENSION out_width, JSAMPIMAGE input_buf,
         input_row++;
         outptr = *output_buf++;
 
+        num_cols = pitch;
         while (num_cols > 0)
         {
             /* Set vl for each iteration. */
@@ -84,50 +89,76 @@ void jsimd_ycc_rgb_convert_rvv(JDIMENSION out_width, JSAMPIMAGE input_buf,
              * R = Y                + 1.40200 * (Cr - CENTERJSAMPLE)
              * G = Y - 0.34414 * (Cb - CENTERJSAMPLE) - 0.71414 * (Cr - CENTERJSAMPLE)
              * B = Y + 1.77200 * (Cb - CENTERJSAMPLE)
-             *
-             * (This implementation)
-             * R = Y                + 0.40200 * (Cr - CENTERJSAMPLE) + (Cr - CENTERJSAMPLE)
+             * 
+             * (Original)
+             * R = Y + (Cr - CENTERJSAMPLE) + 0.40200 * (Cr - CENTERJSAMPLE)
              * G = Y - 0.34414 * (Cb - CENTERJSAMPLE) - 0.71414 * (Cr - CENTERJSAMPLE)
-             * B = Y + 0.77200 * (Cb - CENTERJSAMPLE) + (Cb - CENTERJSAMPLE)
-             * (Because 16-bit can only represent values < 1.)
+             * B = Y + (Cb - CENTERJSAMPLE) + (Cb - CENTERJSAMPLE) - 0.22800 * (Cb - CENTERJSAMPLE)
              */
-            cb = vsub_vx_u16m4(cb, CENTERJSAMPLE, vl);      /* Cb - CENTERJSAMPLE */
-            cr = vsub_vx_u16m4(cr, CENTERJSAMPLE, vl);      /* Cr - CENTERJSAMPLE */
+            sy = vreinterpret_v_u16m4_i16m4(y);
+            scb = vreinterpret_v_u16m4_i16m4(cb);
+            scr = vreinterpret_v_u16m4_i16m4(cr);
+
+            scb = vsub_vx_i16m4(scb, CENTERJSAMPLE, vl);      /* Cb - CENTERJSAMPLE */
+            scr = vsub_vx_i16m4(scr, CENTERJSAMPLE, vl);      /* Cr - CENTERJSAMPLE */
+
             /* Calculate R values */
-            r = vadd_vv_u16m4(y, cr, vl);
-            tmp = vmulhu_vx_u16m4(cr, F_0_402, vl);
-            r = vadd_vv_u16m4(r, tmp, vl);
+            r = vadd_vv_i16m4(sy, scr, vl);
+            tmp0 = vwmul_vx_i32m8(scr, F_0_402, vl);
+            tmp0 = vadd_vx_i32m8(tmp0, ONE_HALF, vl);               /* Proper rounding. */
+            tmp = vnsra_wx_i16m4(tmp0, SCALEBITS, vl);
+            r = vadd_vv_i16m4(r, tmp, vl);
+            /* Range limit */
+            mask = vmslt_vx_i16m4_b4(r, 0, vl);
+            r = vmerge_vxm_i16m4(mask, r, 0, vl);
+            mask = vmsgt_vx_i16m4_b4(r, MAXJSAMPLE, vl);
+            r = vmerge_vxm_i16m4(mask, r, MAXJSAMPLE, vl);
             /* TODO: Figure out whether big-endian or little-endian would be different. */
 #if BITS_IN_JSAMPLE == 8
-            dest = vnsrl_wx_u8m2(r, 0, vl);     /* Narrowing from 16-bit to 8-bit. */
-            vsse8_v_u8m2(outptr + RGB_RED, bstride, dest, vl);
+            dest = vnsra_wx_i8m2(r, 0, vl);     /* Narrowing from 16-bit to 8-bit. */
+            vsse8_v_i8m2(outptr + RGB_RED, bstride, dest, vl);
 #else   /* BITS_IN_JSAMPLE == 12 */
-            vsse16_v_u16m4(outptr + RGB_RED, bstride, r, vl);
+            vsse16_v_i16m4(outptr + RGB_RED, bstride, r, vl);
 #endif
 
             /* Calculate G values */
-            tmp = vmulhu_vx_u16m4(cb, F_0_344, vl);
-            r = vsub_vv_u16m4(y, tmp, vl);
-            tmp = vmulhu_vx_u16m4(cr, F_0_714, vl);
-            r = vsub_vv_u16m4(r, tmp, vl);
+            tmp0 = vwmul_vx_i32m8(scb, -F_0_344, vl);
+            tmp0 = vwmacc_vx_i32m8(tmp0, F_0_285, scr, vl);
+            tmp0 = vadd_vx_i32m8(tmp0, ONE_HALF, vl);           /* Proper rounding. */
+            r = vnsra_wx_i16m4(tmp0, SCALEBITS, vl);
+            r = vadd_vv_i16m4(r, sy, vl);
+            r = vsub_vv_i16m4(r, scr, vl);
+            /* Range limit */
+            mask = vmslt_vx_i16m4_b4(r, 0, vl);
+            r = vmerge_vxm_i16m4(mask, r, 0, vl);
+            mask = vmsgt_vx_i16m4_b4(r, MAXJSAMPLE, vl);
+            r = vmerge_vxm_i16m4(mask, r, MAXJSAMPLE, vl);
             /* TODO: Figure out whether big-endian or little-endian would be different. */
 #if BITS_IN_JSAMPLE == 8
-            dest = vnsrl_wx_u8m2(r, 0, vl);     /* Narrowing from 16-bit to 8-bit. */
-            vsse8_v_u8m2(outptr + RGB_GREEN, bstride, dest, vl);
+            dest = vnsra_wx_i8m2(r, 0, vl);     /* Narrowing from 16-bit to 8-bit. */
+            vsse8_v_i8m2(outptr + RGB_GREEN, bstride, dest, vl);
 #else   /* BITS_IN_JSAMPLE == 12 */
-            vsse16_v_u16m4(outptr + RGB_GREEN, bstride, r, vl);
+            vsse16_v_i16m4(outptr + RGB_GREEN, bstride, r, vl);
 #endif
 
             /* Calculate B values */
-            r = vadd_vv_u16m4(y, cb, vl);
-            tmp = vmulhu_vx_u16m4(cb, F_0_772, vl);
-            r = vadd_vv_u16m4(r, tmp, vl);
+            r = vadd_vv_i16m4(sy, scb, vl);
+            r = vadd_vv_i16m4(r, scb, vl);
+            tmp0 = vwmul_vx_i32m8(scb, -F_0_228, vl);
+            tmp0 = vadd_vx_i32m8(tmp0, ONE_HALF, vl);               /* Proper rounding. */
+            tmp = vnsra_wx_i16m4(tmp0, SCALEBITS, vl);
+            r = vadd_vv_i16m4(r, tmp, vl);
+            /* Range limit */
+            mask = vmslt_vx_i16m4_b4(r, 0, vl);
+            r = vmerge_vxm_i16m4(mask, r, 0, vl);
+            mask = vmsgt_vx_i16m4_b4(r, MAXJSAMPLE, vl);
+            r = vmerge_vxm_i16m4(mask, r, MAXJSAMPLE, vl);
             /* TODO: Figure out whether big-endian or little-endian would be different. */
 #if BITS_IN_JSAMPLE == 8
-            dest = vnsrl_wx_u8m2(r, 0, vl);     /* Narrowing from 16-bit to 8-bit. */
-            vsse8_v_u8m2(outptr + RGB_BLUE, bstride, dest, vl);
+            dest = vnsra_wx_i8m2(r, 0, vl);     /* Narrowing from 16-bit to 8-bit. */
+            vsse8_v_i8m2(outptr + RGB_BLUE, bstride, dest, vl);
 #else   /* BITS_IN_JSAMPLE == 12 */
-            vsse16_v_u16m4(outptr + RGB_BLUE, bstride, r, vl);
+            vsse16_v_i16m4(outptr + RGB_BLUE, bstride, r, vl);
 #endif
 
             /* Store alpha channel values. */

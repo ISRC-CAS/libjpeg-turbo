@@ -28,6 +28,9 @@
 #define F_0_299  19595                /* FIX(0.29900) */
 #define F_0_587  38470                /* FIX(0.58700) */
 
+#define SCALEBITS  16
+#define ONE_HALF  (1 << (SCALEBITS - 1))
+
 
 #include "jcgryext-rvv.c"
 #undef RGB_RED

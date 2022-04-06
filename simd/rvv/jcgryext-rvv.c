@@ -29,11 +29,12 @@ void jsimd_rgb_gray_convert_rvv(JDIMENSION img_width, JSAMPARRAY input_buf,
                                 JDIMENSION output_row, int num_rows)
 {
     JSAMPROW inptr, outptr;
-    vuint16m4_t r, g, b, y, tmp;
+    vuint16m4_t r, g, b, y;
+    vuint32m8_t tmp;
 #if BITS_IN_JSAMPLE == 8
     vuint8m2_t dest, src;
 #endif
-    size_t pitch = img_width * RGB_PIXELSIZE, num_cols = pitch, i;
+    size_t pitch = img_width * RGB_PIXELSIZE, num_cols, i;
 
 
     while (--num_rows >= 0)
@@ -42,6 +43,7 @@ void jsimd_rgb_gray_convert_rvv(JDIMENSION img_width, JSAMPARRAY input_buf,
         outptr = output_buf[0][output_row];
         output_row++;
 
+        num_cols = pitch;
         while (num_cols > 0)
         {
             /* Set vl for each iteration. */
@@ -69,11 +71,12 @@ void jsimd_rgb_gray_convert_rvv(JDIMENSION img_width, JSAMPARRAY input_buf,
             * Y  =  0.29900 * R + 0.58700 * G + 0.11400 * B
             */
             /* Calculate Y values */
-            y = vmulhu_vx_u16m4(r, F_0_299, vl);
-            tmp = vmulhu_vx_u16m4(g, F_0_587, vl);
-            y = vadd_vv_u16m4(y, tmp, vl);
-            tmp = vmulhu_vx_u16m4(b, F_0_114, vl);
-            y = vadd_vv_u16m4(y, tmp, vl);
+            tmp = vwmulu_vx_u32m8(r, F_0_299, vl);
+            tmp = vwmaccu_vx_u32m8(tmp, F_0_587, g, vl);
+            tmp = vwmaccu_vx_u32m8(tmp, F_0_114, b, vl);
+            /* Proper rounding. */
+            tmp = vadd_vx_u32m8(tmp, ONE_HALF - 1, vl);
+            y = vnsrl_wx_u16m4(tmp, SCALEBITS, vl);
             /* TODO: Figure out whether big-endian or little-endian would be different. */
 #if BITS_IN_JSAMPLE == 8
             dest = vnsrl_wx_u8m2(y, 0, vl); /* Narrowing from 16-bit to 8-bit. */
