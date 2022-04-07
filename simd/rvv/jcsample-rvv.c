@@ -51,6 +51,8 @@ void jsimd_h2v1_downsample_rvv(JDIMENSION image_width,
                                JSAMPARRAY input_data,
                                JSAMPARRAY output_data)
 {
+  // printf("img_width: %d\nmax_v_samp_factor: %d\nv_samp_factor: %d\nwidth_in_blocks: %d\n", 
+  //                                   image_width, max_v_samp_factor, v_samp_factor, width_in_blocks);
   int outrow, outcol, i, zr_one = 0;
   JDIMENSION output_cols = width_in_blocks * DCTSIZE;
   JSAMPROW inptr, outptr;
@@ -61,11 +63,12 @@ void jsimd_h2v1_downsample_rvv(JDIMENSION image_width,
 
   /* TODO: If there exists a better way to generate bias sequence. */
   /* Bias */
-  size_t vl = vsetvl_e16m4(output_cols / 2);
+  size_t vl = vsetvl_e16m4(output_cols * 2);
   uint16_t *bias = NULL;
   if (NULL == (bias = (uint16_t *)malloc(vl * sizeof(uint16_t))))
   {
     /* TODO: throw exception here. */
+    printf("\nmem alloc error!\n");
     return;
   }
   for (i = 0; i < vl; i++)
@@ -85,7 +88,7 @@ void jsimd_h2v1_downsample_rvv(JDIMENSION image_width,
     for (outcol = output_cols; outcol > 0;
          outcol -= vl, inptr += vl * 2, outptr += vl)
     {
-      vl = vsetvl_e16m4(outcol / 2);
+      vl = vsetvl_e16m4(outcol * 2);
 
       /* Load samples and the adjacent ones. */
       this = vlse8_v_u8m2(inptr, 2 * sizeof(JSAMPLE), vl);
@@ -125,7 +128,7 @@ void jsimd_h2v2_downsample_rvv(JDIMENSION image_width, int max_v_samp_factor,
 
   /* TODO: If there exists a better way to generate bias sequence. */
   /* Bias */
-  size_t vl = vsetvl_e16m4(output_cols / 2);
+  size_t vl = vsetvl_e16m4(output_cols * 2);
   uint16_t *bias = NULL;
   if (NULL == (bias = (uint16_t *)malloc(vl * sizeof(uint16_t))))
   {
@@ -151,7 +154,7 @@ void jsimd_h2v2_downsample_rvv(JDIMENSION image_width, int max_v_samp_factor,
     for (outcol = output_cols; outcol > 0;
          outcol -= vl, inptr0 += vl * 2, inptr1 += vl * 2, outptr += vl)
     {
-      vl = vsetvl_e16m4(outcol / 2);
+      vl = vsetvl_e16m4(outcol * 2);
 
       /* Load samples and the adjacent ones of two rows. */
       this0 = vlse8_v_u8m2(inptr0, 2 * sizeof(JSAMPLE), vl);

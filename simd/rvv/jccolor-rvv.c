@@ -34,6 +34,10 @@
 #define F_0_500  32768                /* FIX(0.50000) */
 #define F_0_587  38470                /* FIX(0.58700) */
 
+#define SCALEBITS  16
+#define ONE_HALF  (1 << (SCALEBITS - 1))
+#define SCALED_CENTERJSAMPLE (CENTERJSAMPLE << SCALEBITS)
+
 
 #include "jccolext-rvv.c"
 #undef RGB_RED
