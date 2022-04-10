@@ -90,9 +90,9 @@ void jsimd_ycc_rgb_convert_rvv(JDIMENSION out_width, JSAMPIMAGE input_buf,
              * G = Y - 0.34414 * (Cb - CENTERJSAMPLE) - 0.71414 * (Cr - CENTERJSAMPLE)
              * B = Y + 1.77200 * (Cb - CENTERJSAMPLE)
              * 
-             * (Original)
+             * (This implementation)
              * R = Y + (Cr - CENTERJSAMPLE) + 0.40200 * (Cr - CENTERJSAMPLE)
-             * G = Y - 0.34414 * (Cb - CENTERJSAMPLE) - 0.71414 * (Cr - CENTERJSAMPLE)
+             * G = Y - 0.34414 * (Cb - CENTERJSAMPLE) + 0.28586 * (Cr - CENTERJSAMPLE) - (Cr - CENTERSAMPLE)
              * B = Y + (Cb - CENTERJSAMPLE) + (Cb - CENTERJSAMPLE) - 0.22800 * (Cb - CENTERJSAMPLE)
              */
             sy = vreinterpret_v_u16m4_i16m4(y);

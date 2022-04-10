@@ -42,12 +42,10 @@
 
 #define DO_COMMON_IDCT(in) { \
     /* Even part */ \
-    z1 = vadd_vv_i16m2(in##2, in##6, vl); \
-    p1 = vwmul_vx_i32m4(z1, F_0_541, vl); \
-    tmp2 = vwmul_vx_i32m4(in##6, -F_1_847, vl); \
-    tmp2 = vadd_vv_i32m4(p1, tmp2, vl); \
-    tmp3 = vwmul_vx_i32m4(in##2, F_0_765, vl); \
-    tmp3 = vadd_vv_i32m4(p1, tmp3, vl); \
+    z1 = vwadd_vv_i32m4(in##2, in##6, vl); \
+    z1 = vmul_vx_i32m4(z1, F_0_541, vl); \
+    tmp2 = vwmacc_vx_i32m4(z1, -F_1_847, in##6, vl); \
+    tmp3 = vwmacc_vx_i32m4(z1, F_0_765, in##2, vl); \
     \
     tmp0 = vwadd_vv_i32m4(in##0, in##4, vl); \
     tmp0 = vsll_vx_i32m4(tmp0, CONST_BITS, vl); \
@@ -60,33 +58,33 @@
     tmp12 = vsub_vv_i32m4(tmp1, tmp2, vl);  \
     \
     /* Odd Part */ \
-    z1 = vadd_vv_i16m2(in##7, in##1, vl); \
-    z2 = vadd_vv_i16m2(in##5, in##3, vl); \
-    z3 = vadd_vv_i16m2(in##7, in##3, vl); \
-    z4 = vadd_vv_i16m2(in##5, in##1, vl); \
-    z5 = vadd_vv_i16m2(z3, z4, vl); \
-    p5 = vwmul_vx_i32m4(z5, F_1_175, vl); \
-     \
+    z1 = vwadd_vv_i32m4(in##7, in##1, vl); \
+    z2 = vwadd_vv_i32m4(in##5, in##3, vl); \
+    z3 = vwadd_vv_i32m4(in##7, in##3, vl); \
+    z4 = vwadd_vv_i32m4(in##5, in##1, vl); \
+    z5 = vadd_vv_i32m4(z3, z4, vl); \
+    z5 = vmul_vx_i32m4(z5, F_1_175, vl); \
+    \
     tmp0 = vwmul_vx_i32m4(in##7, F_0_298, vl); \
     tmp1 = vwmul_vx_i32m4(in##5, F_2_053, vl); \
     tmp2 = vwmul_vx_i32m4(in##3, F_3_072, vl); \
     tmp3 = vwmul_vx_i32m4(in##1, F_1_501, vl); \
-    p1 = vwmul_vx_i32m4(z1, -F_0_899, vl); \
-    p2 = vwmul_vx_i32m4(z2, -F_2_562, vl); \
-    p3 = vwmul_vx_i32m4(z3, -F_1_961, vl); \
-    p4 = vwmul_vx_i32m4(z4, -F_0_390, vl); \
+    z1 = vmul_vx_i32m4(z1, -F_0_899, vl); \
+    z2 = vmul_vx_i32m4(z2, -F_2_562, vl); \
+    z3 = vmul_vx_i32m4(z3, -F_1_961, vl); \
+    z4 = vmul_vx_i32m4(z4, -F_0_390, vl); \
     \
-    p3 = vadd_vv_i32m4(p3, p5, vl); \
-    p4 = vadd_vv_i32m4(p4, p5, vl); \
+    z3 = vadd_vv_i32m4(z3, z5, vl); \
+    z4 = vadd_vv_i32m4(z4, z5, vl); \
     \
-    tmp0 = vadd_vv_i32m4(tmp0, p1, vl); \
-    tmp0 = vadd_vv_i32m4(tmp0, p3, vl); \
-    tmp1 = vadd_vv_i32m4(tmp1, p2, vl); \
-    tmp1 = vadd_vv_i32m4(tmp1, p4, vl); \
-    tmp2 = vadd_vv_i32m4(tmp2, p2, vl); \
-    tmp2 = vadd_vv_i32m4(tmp2, p3, vl); \
-    tmp3 = vadd_vv_i32m4(tmp3, p1, vl); \
-    tmp3 = vadd_vv_i32m4(tmp3, p4, vl); \
+    tmp0 = vadd_vv_i32m4(tmp0, z1, vl); \
+    tmp0 = vadd_vv_i32m4(tmp0, z3, vl); \
+    tmp1 = vadd_vv_i32m4(tmp1, z2, vl); \
+    tmp1 = vadd_vv_i32m4(tmp1, z4, vl); \
+    tmp2 = vadd_vv_i32m4(tmp2, z2, vl); \
+    tmp2 = vadd_vv_i32m4(tmp2, z3, vl); \
+    tmp3 = vadd_vv_i32m4(tmp3, z1, vl); \
+    tmp3 = vadd_vv_i32m4(tmp3, z4, vl); \
 }
 
 
@@ -98,16 +96,15 @@ void jsimd_idct_islow_rvv(void *dct_table, JCOEFPTR coef_block,
     ISLOW_MULT_TYPE *quantptr = dct_table;
     DCTELEM workspace[DCTSIZE2];
 
-    vint8m1_t nrr0, nrr1, nrr2, nrr3, nrr4, nrr5, nrr6, nrr7;
-    vuint8m1_t dst0, dst1, dst2, dst3, dst4, dst5, dst6, dst7;
+    vint8m1_t dst0, dst1, dst2, dst3, dst4, dst5, dst6, dst7;
     vint16m2_t row0, row1, row2, row3, row4, row5, row6, row7,
                col0, col1, col2, col3, col4, col5, col6, col7,
-               z1, z2, z3, z4, z5,
                out0, out1, out2, out3, out4, out5, out6, out7,
                quant0, quant1, quant2, quant3, quant4, quant5, quant6, quant7;
-    vint32m4_t out, p1, p2, p3, p4, p5,
+    vint32m4_t out, z1, z2, z3, z4, z5,
                tmp0, tmp1, tmp2, tmp3, tmp4, 
                tmp10, tmp11, tmp12, tmp13;
+    vbool8_t mask;
     size_t vl = vsetvl_e16m2(DCTSIZE), 
            col_stride = DCTSIZE * sizeof(DCTELEM);
 
@@ -164,7 +161,7 @@ void jsimd_idct_islow_rvv(void *dct_table, JCOEFPTR coef_block,
     out = vadd_vv_i32m4(tmp13, tmp0, vl);
     out = vadd_vx_i32m4(out, ROUND_ADD(CONST_BITS - PASS1_BITS), vl);
     out3 = vnsra_wx_i16m2(out, CONST_BITS - PASS1_BITS, vl);
-    out = vadd_vv_i32m4(tmp13, tmp0, vl);
+    out = vsub_vv_i32m4(tmp13, tmp0, vl);
     out = vadd_vx_i32m4(out, ROUND_ADD(CONST_BITS - PASS1_BITS), vl);
     out4 = vnsra_wx_i16m2(out, CONST_BITS - PASS1_BITS, vl);
 
@@ -213,7 +210,7 @@ void jsimd_idct_islow_rvv(void *dct_table, JCOEFPTR coef_block,
     out = vadd_vv_i32m4(tmp13, tmp0, vl);
     out = vadd_vx_i32m4(out, ROUND_ADD(CONST_BITS + PASS1_BITS + 3), vl);
     out3 = vnsra_wx_i16m2(out, CONST_BITS + PASS1_BITS + 3, vl);
-    out = vadd_vv_i32m4(tmp13, tmp0, vl);
+    out = vsub_vv_i32m4(tmp13, tmp0, vl);
     out = vadd_vx_i32m4(out, ROUND_ADD(CONST_BITS + PASS1_BITS + 3), vl);
     out4 = vnsra_wx_i16m2(out, CONST_BITS + PASS1_BITS + 3, vl);
 
@@ -238,70 +235,78 @@ void jsimd_idct_islow_rvv(void *dct_table, JCOEFPTR coef_block,
     out6 = vle16_v_i16m2(workspace + DCTSIZE * 6, vl);
     out7 = vle16_v_i16m2(workspace + DCTSIZE * 7, vl);
 
-#if BITS_IN_JSAMPLE == 8
-    nrr0 = vnsra_wx_i8m1(out0, 0, vl);
-    nrr1 = vnsra_wx_i8m1(out1, 0, vl);
-    nrr2 = vnsra_wx_i8m1(out2, 0, vl);
-    nrr3 = vnsra_wx_i8m1(out3, 0, vl);
-    nrr4 = vnsra_wx_i8m1(out4, 0, vl);
-    nrr5 = vnsra_wx_i8m1(out5, 0, vl);
-    nrr6 = vnsra_wx_i8m1(out6, 0, vl);
-    nrr7 = vnsra_wx_i8m1(out7, 0, vl);
-
-    nrr0 = vadd_vx_i8m1(nrr0, CENTERJSAMPLE, vl);
-    nrr1 = vadd_vx_i8m1(nrr1, CENTERJSAMPLE, vl);
-    nrr2 = vadd_vx_i8m1(nrr2, CENTERJSAMPLE, vl);
-    nrr3 = vadd_vx_i8m1(nrr3, CENTERJSAMPLE, vl);
-    nrr4 = vadd_vx_i8m1(nrr4, CENTERJSAMPLE, vl);
-    nrr5 = vadd_vx_i8m1(nrr5, CENTERJSAMPLE, vl);
-    nrr6 = vadd_vx_i8m1(nrr6, CENTERJSAMPLE, vl);
-    nrr7 = vadd_vx_i8m1(nrr7, CENTERJSAMPLE, vl);
-
-    dst0 = vreinterpret_v_i8m1_u8m1(nrr0);
-    dst1 = vreinterpret_v_i8m1_u8m1(nrr1);
-    dst2 = vreinterpret_v_i8m1_u8m1(nrr2);
-    dst3 = vreinterpret_v_i8m1_u8m1(nrr3);
-    dst4 = vreinterpret_v_i8m1_u8m1(nrr4);
-    dst5 = vreinterpret_v_i8m1_u8m1(nrr5);
-    dst6 = vreinterpret_v_i8m1_u8m1(nrr6);
-    dst7 = vreinterpret_v_i8m1_u8m1(nrr7);
-
-    vse8_v_u8m1(output_buf[0] + output_col, dst0, vl);
-    vse8_v_u8m1(output_buf[1] + output_col, dst1, vl);
-    vse8_v_u8m1(output_buf[2] + output_col, dst2, vl);
-    vse8_v_u8m1(output_buf[3] + output_col, dst3, vl);
-    vse8_v_u8m1(output_buf[4] + output_col, dst4, vl);
-    vse8_v_u8m1(output_buf[5] + output_col, dst5, vl);
-    vse8_v_u8m1(output_buf[6] + output_col, dst6, vl);
-    vse8_v_u8m1(output_buf[7] + output_col, dst7, vl);
-
-
-#else
-    out0 = vsra_vx_i16m2(out0, 0, vl);
-    out1 = vsra_vx_i16m2(out1, 0, vl);
-    out2 = vsra_vx_i16m2(out2, 0, vl);
-    out3 = vsra_vx_i16m2(out3, 0, vl);
-    out4 = vsra_vx_i16m2(out4, 0, vl);
-    out5 = vsra_vx_i16m2(out5, 0, vl);
-    out6 = vsra_vx_i16m2(out6, 0, vl);
-    out7 = vsra_vx_i16m2(out7, 0, vl);
-
     out0 = vadd_vx_i16m2(out0, CENTERJSAMPLE, vl);
+    /* Range limit */
+    mask = vmslt_vx_i16m2_b8(out0, 0, vl);
+    out0 = vmerge_vxm_i16m2(mask, out0, 0, vl);
+    mask = vmsgt_vx_i16m2_b8(out0, MAXJSAMPLE, vl);
+    out0 = vmerge_vxm_i16m2(mask, out0, MAXJSAMPLE, vl);
+    
     out1 = vadd_vx_i16m2(out1, CENTERJSAMPLE, vl);
-    out2 = vadd_vx_i16m2(out2, CENTERJSAMPLE, vl);
-    out3 = vadd_vx_i16m2(out3, CENTERJSAMPLE, vl);
-    out4 = vadd_vx_i16m2(out4, CENTERJSAMPLE, vl);
-    out5 = vadd_vx_i16m2(out5, CENTERJSAMPLE, vl);
-    out6 = vadd_vx_i16m2(out6, CENTERJSAMPLE, vl);
-    out7 = vadd_vx_i16m2(out7, CENTERJSAMPLE, vl);
+    /* Range limit */
+    mask = vmslt_vx_i16m2_b8(out1, 0, vl);
+    out1 = vmerge_vxm_i16m2(mask, out1, 0, vl);
+    mask = vmsgt_vx_i16m2_b8(out1, MAXJSAMPLE, vl);
+    out1 = vmerge_vxm_i16m2(mask, out1, MAXJSAMPLE, vl);
 
-    vse16_v_i16m2(output_buf[0] + output_col, out0, vl);
-    vse16_v_i16m2(output_buf[1] + output_col, out1, vl);
-    vse16_v_i16m2(output_buf[2] + output_col, out2, vl);
-    vse16_v_i16m2(output_buf[3] + output_col, out3, vl);
-    vse16_v_i16m2(output_buf[4] + output_col, out4, vl);
-    vse16_v_i16m2(output_buf[5] + output_col, out5, vl);
-    vse16_v_i16m2(output_buf[6] + output_col, out6, vl);
-    vse16_v_i16m2(output_buf[7] + output_col, out7, vl);
-#endif
+    out2 = vadd_vx_i16m2(out2, CENTERJSAMPLE, vl);
+    /* Range limit */
+    mask = vmslt_vx_i16m2_b8(out2, 0, vl);
+    out2 = vmerge_vxm_i16m2(mask, out2, 0, vl);
+    mask = vmsgt_vx_i16m2_b8(out2, MAXJSAMPLE, vl);
+    out2 = vmerge_vxm_i16m2(mask, out2, MAXJSAMPLE, vl);
+
+    out3 = vadd_vx_i16m2(out3, CENTERJSAMPLE, vl);
+    /* Range limit */
+    mask = vmslt_vx_i16m2_b8(out3, 0, vl);
+    out3 = vmerge_vxm_i16m2(mask, out3, 0, vl);
+    mask = vmsgt_vx_i16m2_b8(out3, MAXJSAMPLE, vl);
+    out3 = vmerge_vxm_i16m2(mask, out3, MAXJSAMPLE, vl);
+
+    out4 = vadd_vx_i16m2(out4, CENTERJSAMPLE, vl);
+    /* Range limit */
+    mask = vmslt_vx_i16m2_b8(out4, 0, vl);
+    out4 = vmerge_vxm_i16m2(mask, out4, 0, vl);
+    mask = vmsgt_vx_i16m2_b8(out4, MAXJSAMPLE, vl);
+    out4 = vmerge_vxm_i16m2(mask, out4, MAXJSAMPLE, vl);
+
+    out5 = vadd_vx_i16m2(out5, CENTERJSAMPLE, vl);
+    /* Range limit */
+    mask = vmslt_vx_i16m2_b8(out5, 0, vl);
+    out5 = vmerge_vxm_i16m2(mask, out5, 0, vl);
+    mask = vmsgt_vx_i16m2_b8(out5, MAXJSAMPLE, vl);
+    out5 = vmerge_vxm_i16m2(mask, out5, MAXJSAMPLE, vl);
+
+    out6 = vadd_vx_i16m2(out6, CENTERJSAMPLE, vl);
+    /* Range limit */
+    mask = vmslt_vx_i16m2_b8(out6, 0, vl);
+    out6 = vmerge_vxm_i16m2(mask, out6, 0, vl);
+    mask = vmsgt_vx_i16m2_b8(out6, MAXJSAMPLE, vl);
+    out6 = vmerge_vxm_i16m2(mask, out6, MAXJSAMPLE, vl);
+
+    out7 = vadd_vx_i16m2(out7, CENTERJSAMPLE, vl);
+    /* Range limit */
+    mask = vmslt_vx_i16m2_b8(out7, 0, vl);
+    out7 = vmerge_vxm_i16m2(mask, out7, 0, vl);
+    mask = vmsgt_vx_i16m2_b8(out7, MAXJSAMPLE, vl);
+    out7 = vmerge_vxm_i16m2(mask, out7, MAXJSAMPLE, vl);
+
+    dst0 = vnsra_wx_i8m1(out0, 0, vl);
+    dst1 = vnsra_wx_i8m1(out1, 0, vl);
+    dst2 = vnsra_wx_i8m1(out2, 0, vl);
+    dst3 = vnsra_wx_i8m1(out3, 0, vl);
+    dst4 = vnsra_wx_i8m1(out4, 0, vl);
+    dst5 = vnsra_wx_i8m1(out5, 0, vl);
+    dst6 = vnsra_wx_i8m1(out6, 0, vl);
+    dst7 = vnsra_wx_i8m1(out7, 0, vl);
+
+    vse8_v_i8m1(output_buf[0] + output_col, dst0, vl);
+    vse8_v_i8m1(output_buf[1] + output_col, dst1, vl);
+    vse8_v_i8m1(output_buf[2] + output_col, dst2, vl);
+    vse8_v_i8m1(output_buf[3] + output_col, dst3, vl);
+    vse8_v_i8m1(output_buf[4] + output_col, dst4, vl);
+    vse8_v_i8m1(output_buf[5] + output_col, dst5, vl);
+    vse8_v_i8m1(output_buf[6] + output_col, dst6, vl);
+    vse8_v_i8m1(output_buf[7] + output_col, dst7, vl);
+
 }

@@ -38,6 +38,7 @@ void jsimd_h2v1_fancy_upsample_rvv(int max_v_samp_factor,
                                    JSAMPARRAY input_data,
                                    JSAMPARRAY *output_data_ptr)
 {
+    printf("\n----------------------------------h2v1_fancy_upsamp-----------------------------------\n");
     JSAMPARRAY output_data = *output_data_ptr;
     JSAMPROW inptr, outptr;
     int inrow, incol;
@@ -94,6 +95,7 @@ void jsimd_h2v2_fancy_upsample_rvv(int max_v_samp_factor,
                                    JSAMPARRAY input_data,
                                    JSAMPARRAY *output_data_ptr)
 {
+    printf("\n----------------------------------h2v2_fancy_upsamp-----------------------------------\n");
     JSAMPARRAY output_data = *output_data_ptr;
     JSAMPROW inptr_1, inptr0, inptr1, outptr0, outptr1;
     int inrow, outrow, incol;
@@ -112,7 +114,7 @@ void jsimd_h2v2_fancy_upsample_rvv(int max_v_samp_factor,
                 s0_add_3s1_ctr, s1_add_3s0_ctr, s0_add_3s1_sd, s1_add_3s0_sd,
                 p_odd0_u16, p_even0_u16, p_odd1_u16, p_even1_u16;
 
-    for (inrow = 0, outrow = 0; inrow < max_v_samp_factor; inrow++)
+    for (inrow = 0, outrow = 0; outrow < max_v_samp_factor; inrow++)
     {
         inptr_1 = input_data[inrow - 1];
         inptr0 = input_data[inrow];
@@ -223,7 +225,7 @@ void jsimd_h2v1_upsample_rvv(int max_v_samp_factor,
 {
     JSAMPARRAY output_data = *output_data_ptr;
     JSAMPROW inptr, outptr;
-    int inrow, incol;
+    int inrow, outcol;
     size_t vl;
 
     vuint8m8_t samples;
@@ -236,10 +238,10 @@ void jsimd_h2v1_upsample_rvv(int max_v_samp_factor,
         /* p0(upsampled) = p1(upsampled) = s0
          * p2(upsampled) = p3(upsampled) = s1 
          */
-        for (incol = output_width; incol > 0;
-             incol -= vl, inptr += vl, outptr += 2 * vl)
+        for (outcol = output_width; outcol > 0;
+             outcol -= 2 * vl, inptr += vl, outptr += 2 * vl)
         {
-            vl = vsetvl_e8m8(incol);
+            vl = vsetvl_e8m8((outcol + 1) / 2);
 
             samples = vle8_v_u8m8(inptr, vl);
 
@@ -258,12 +260,12 @@ void jsimd_h2v2_upsample_rvv(int max_v_samp_factor,
 {
     JSAMPARRAY output_data = *output_data_ptr;
     JSAMPROW inptr, outptr0, outptr1;
-    int inrow, outrow, incol;
+    int inrow, outrow, outcol;
     size_t vl;
 
     vuint8m8_t samples;
 
-    for (inrow = 0, outrow = 0; inrow < max_v_samp_factor; inrow++)
+    for (inrow = 0, outrow = 0; outrow < max_v_samp_factor; inrow++)
     {
         inptr = input_data[inrow];
         outptr0 = output_data[outrow++];
@@ -274,11 +276,10 @@ void jsimd_h2v2_upsample_rvv(int max_v_samp_factor,
          * p8(upsampled) = p9(upsampled) = p12(upsampled) = p13(upsampled) = s0B
          * p10(upsampled) = p11(upsampled) = p14(upsampled) = p15(upsampled) = s1B
          */
-        for (incol = output_width; incol > 0;
-             incol -= vl, inptr += vl, 
-             outptr0 += 2 * vl, outptr1 += 2 * vl)
+        for (outcol = output_width; outcol > 0;
+             outcol -= 2 * vl, inptr += vl, outptr0 += 2 * vl, outptr1 += 2 * vl)
         {
-            vl = vsetvl_e8m8(incol);
+            vl = vsetvl_e8m8((outcol + 1) / 2);
 
             samples = vle8_v_u8m8(inptr, vl);
 
