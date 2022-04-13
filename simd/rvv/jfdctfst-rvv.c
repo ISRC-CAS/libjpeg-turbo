@@ -71,8 +71,7 @@
 }
 
 
-/* TODO: how many bits does a vector register has at least? 
-         how to process const number(8 here) of 16-bit elements? */
+/* TODO: how many bits does a vector register has at least? */
 void jsimd_fdct_ifast_rvv(DCTELEM *data)
 {
     vint16m2_t row0, row1, row2, row3, row4, row5, row6, row7,

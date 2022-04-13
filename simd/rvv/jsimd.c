@@ -429,7 +429,7 @@ jsimd_h2v2_upsample(j_decompress_ptr cinfo, jpeg_component_info *compptr,
                     JSAMPARRAY input_data, JSAMPARRAY *output_data_ptr)
 {
   jsimd_h2v2_upsample_rvv(cinfo->max_v_samp_factor,
-                          compptr->downsampled_width, input_data,
+                          cinfo->output_width, input_data,
                           output_data_ptr);
 }
 
@@ -438,7 +438,7 @@ jsimd_h2v1_upsample(j_decompress_ptr cinfo, jpeg_component_info *compptr,
                     JSAMPARRAY input_data, JSAMPARRAY *output_data_ptr)
 {
   jsimd_h2v1_upsample_rvv(cinfo->max_v_samp_factor,
-                          compptr->downsampled_width, input_data,
+                          cinfo->output_width, input_data,
                           output_data_ptr);
 }
 

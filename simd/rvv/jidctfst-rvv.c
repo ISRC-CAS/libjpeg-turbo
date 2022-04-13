@@ -26,7 +26,6 @@
 #define FIX_1_414  362              /* FIX(1.414213562) */
 #define FIX_1_847  473              /* FIX(1.847759065) */
 #define FIX_2_613  669              /* FIX(2.613125930) */
-#define FIX_1_613  (FIX_2_613 - 256)  /* FIX(2.613125930) - FIX(1) */
 
 #if BITS_IN_JSAMPLE == 8
 #define CONST_BITS  8
@@ -64,15 +63,6 @@
     pdt = vwmul_vx_i32m4(tmp11, FIX_1_414, vl); \
     tmp11 = vnsra_wx_i16m2(pdt, CONST_BITS, vl); \
     \
-    /* To avoid overflow...
-     * 
-     * (Original)
-     * tmp12 = -2.613125930 * z10 + z5;
-     * 
-     * (This implementation)
-     * tmp12 = (-1.613125930 - 1) * z10 + z5;
-     *       = z5 - 1.613125930 * z10 - z10;
-     */ \
     z5 = vadd_vv_i16m2(z10, z12, vl); \
     pdt = vwmul_vx_i32m4(z5, FIX_1_847, vl); \
     z5 = vnsra_wx_i16m2(pdt, CONST_BITS, vl); \
@@ -80,10 +70,9 @@
     pdt = vwmul_vx_i32m4(z12, FIX_1_082, vl); \
     tmp10 = vnsra_wx_i16m2(pdt, CONST_BITS, vl); \
     tmp10 = vsub_vv_i16m2(tmp10, z5, vl); \
-    pdt = vwmul_vx_i32m4(z10, FIX_1_613, vl); \
+    pdt = vwmul_vx_i32m4(z10, -FIX_2_613, vl); \
     tmp12 = vnsra_wx_i16m2(pdt, CONST_BITS, vl); \
-    tmp12 = vsub_vv_i16m2(z5, tmp12, vl); \
-    tmp12 = vsub_vv_i16m2(tmp12, z10, vl); \
+    tmp12 = vadd_vv_i16m2(z5, tmp12, vl); \
     \
     tmp6 = vsub_vv_i16m2(tmp12, tmp7, vl); \
     tmp5 = vsub_vv_i16m2(tmp11, tmp6, vl); \
@@ -91,12 +80,10 @@
 }
 
 
-/* TODO: how many bits does a vector register has at least? 
-         how to process const number(8 here) of 16-bit elements? */
+/* TODO: how many bits does a vector register has at least? */
 void jsimd_idct_ifast_rvv(void *dct_table, JCOEFPTR coef_block,
                           JSAMPARRAY output_buf, JDIMENSION output_col)
 {
-    printf("\n+++++++++++++++++++++++++++++++++idct_ifast_rvv++++++++++++++++++++++++++++++++\n");
     IFAST_MULT_TYPE *quantptr = dct_table;
     DCTELEM workspace[DCTSIZE2];
 
@@ -207,6 +194,15 @@ void jsimd_idct_ifast_rvv(void *dct_table, JCOEFPTR coef_block,
     out5 = vle16_v_i16m2(workspace + DCTSIZE * 5, vl);
     out6 = vle16_v_i16m2(workspace + DCTSIZE * 6, vl);
     out7 = vle16_v_i16m2(workspace + DCTSIZE * 7, vl);
+
+    out0 = vsra_vx_i16m2(out0, PASS1_BITS + 3, vl);
+    out1 = vsra_vx_i16m2(out1, PASS1_BITS + 3, vl);
+    out2 = vsra_vx_i16m2(out2, PASS1_BITS + 3, vl);
+    out3 = vsra_vx_i16m2(out3, PASS1_BITS + 3, vl);
+    out4 = vsra_vx_i16m2(out4, PASS1_BITS + 3, vl);
+    out5 = vsra_vx_i16m2(out5, PASS1_BITS + 3, vl);
+    out6 = vsra_vx_i16m2(out6, PASS1_BITS + 3, vl);
+    out7 = vsra_vx_i16m2(out7, PASS1_BITS + 3, vl);
 
     out0 = vadd_vx_i16m2(out0, CENTERJSAMPLE, vl);
     /* Range limit */
