@@ -534,12 +534,21 @@ endif()
 
 elseif(CPU_TYPE STREQUAL "riscv64")
 
-set(CMAKE_REQUIRED_FLAGS "-march=rv64gcv_zfh")
+set(CMAKE_REQUIRED_FLAGS "-march=rv64gcv")
 
 check_c_source_compiles("
   #include <riscv_vector.h>
-  int main(void) {
+  #if defined(__riscv_v_intrinsic) &&  __riscv_v_intrinsic>10999
+  #define vreinterpret_v_u64m1_u8m1 __riscv_vreinterpret_v_u64m1_u8m1
+  #define vle64_v_u64m1 __riscv_vle64_v_u64m1
+  #define vle32_v_f32m1 __riscv_vle32_v_f32m1
+  #define vfmv_f_s_f32m1_f32 __riscv_vfmv_f_s_f32m1_f32
+  #endif
+  int main()
+  {
     const float src[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    uint64_t ptr[2] = {0x0908060504020100, 0xFFFFFFFF0E0D0C0A};
+    vuint8m1_t a = vreinterpret_v_u64m1_u8m1(vle64_v_u64m1(ptr, 2));
     vfloat32m1_t val = vle32_v_f32m1((const float*)(src), 4);
     return (int)vfmv_f_s_f32m1_f32(val);
   }" HAVE_RVV)
@@ -559,7 +568,7 @@ set(SIMD_SOURCES rvv/jccolor-rvv.c rvv/jcgray-rvv.c
   rvv/jquanti-rvv.c)
 
 set_source_files_properties(${SIMD_SOURCES} PROPERTIES
-  COMPILE_FLAGS -march=rv64gcv_zfh)
+  COMPILE_FLAGS -march=rv64gcv)
 
 add_library(simd OBJECT ${SIMD_SOURCES} rvv/jsimd.c)
 

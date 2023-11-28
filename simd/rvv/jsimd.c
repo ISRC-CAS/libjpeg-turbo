@@ -892,7 +892,7 @@ jsimd_can_encode_mcu_AC_first_prepare(void)
 GLOBAL(void)
 jsimd_encode_mcu_AC_first_prepare(const JCOEF *block,
                                   const int *jpeg_natural_order_start, int Sl,
-                                  int Al, JCOEF *values, size_t *zerobits)
+                                  int Al, UJCOEF *values, size_t *zerobits)
 {
 }
 
@@ -905,7 +905,7 @@ jsimd_can_encode_mcu_AC_refine_prepare(void)
 GLOBAL(int)
 jsimd_encode_mcu_AC_refine_prepare(const JCOEF *block,
                                    const int *jpeg_natural_order_start, int Sl,
-                                   int Al, JCOEF *absvalues, size_t *bits)
+                                   int Al, UJCOEF *absvalues, size_t *bits)
 {
   return 0;
 }

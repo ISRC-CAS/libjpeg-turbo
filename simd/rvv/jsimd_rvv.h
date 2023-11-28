@@ -27,7 +27,7 @@
 #include "../../jdct.h"
 #include "../../jsimddct.h"
 #include "../jsimd.h"
-#include <riscv_vector.h>
+#include "intrin_rvv.h"
 
 
 #define BYTE_BIT  8
