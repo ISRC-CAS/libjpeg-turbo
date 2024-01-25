@@ -43,9 +43,9 @@ void jsimd_h2v1_fancy_upsample_rvv(int max_v_samp_factor,
     int inrow, incol;
     size_t vl;
 
-    vuint8m2_t this, shift, p_odd, p_even;
+    vuint8m4_t this, shift, p_odd, p_even;
     /* '_u16' suffix denotes 16-bit unsigned int type. */
-    vuint16m4_t p_odd_u16, p_even_u16;
+    vuint16m8_t p_odd_u16, p_even_u16;
 
     for (inrow = 0; inrow < max_v_samp_factor; inrow++)
     {
@@ -57,27 +57,27 @@ void jsimd_h2v1_fancy_upsample_rvv(int max_v_samp_factor,
         for (incol = downsampled_width - 1; incol > 0;
              incol -= vl, inptr += vl, outptr += 2 * vl)
         {
-            vl = vsetvl_e16m4(incol);
+            vl = vsetvl_e16m8(incol);
 
             /* Load smaples and samples with offset 1. */
-            this = vle8_v_u8m2(inptr, vl);
-            shift = vle8_v_u8m2(inptr + 1, vl);
+            this = vle8_v_u8m4(inptr, vl);
+            shift = vle8_v_u8m4(inptr + 1, vl);
 
             /* p1(upsampled) = (3 * s0 + s1 + 2) / 4 */
-            p_odd_u16 = vwmulu_vx_u16m4(this, 3, vl);
-            p_odd_u16 = vwaddu_wv_u16m4(p_odd_u16, shift, vl);
-            p_odd_u16 = vadd_vx_u16m4(p_odd_u16, 2, vl);        /* Add bias */
+            p_odd_u16 = vwmulu_vx_u16m8(this, 3, vl);
+            p_odd_u16 = vwaddu_wv_u16m8(p_odd_u16, shift, vl);
+            p_odd_u16 = vadd_vx_u16m8(p_odd_u16, 2, vl);        /* Add bias */
             /* p2(upsampled) = (3 * s1 + s0 + 1) / 4 */
-            p_even_u16 = vwmulu_vx_u16m4(shift, 3, vl);
-            p_even_u16 = vwaddu_wv_u16m4(p_even_u16, this, vl);
-            p_even_u16 = vadd_vx_u16m4(p_even_u16, 1, vl);      /* Add bias */
+            p_even_u16 = vwmulu_vx_u16m8(shift, 3, vl);
+            p_even_u16 = vwaddu_wv_u16m8(p_even_u16, this, vl);
+            p_even_u16 = vadd_vx_u16m8(p_even_u16, 1, vl);      /* Add bias */
 
             /* Right-shift by 2 (divide by 4) and narrow to 8-bit. */
-            p_odd = vnsrl_wx_u8m2(p_odd_u16, 2, vl);
-            p_even = vnsrl_wx_u8m2(p_even_u16, 2, vl);
+            p_odd = vnsrl_wx_u8m4(p_odd_u16, 2, vl);
+            p_even = vnsrl_wx_u8m4(p_even_u16, 2, vl);
             /* Strided store to memory. */
-            vsse8_v_u8m2(outptr, 2 * sizeof(JSAMPLE), p_odd, vl);
-            vsse8_v_u8m2(outptr + 1, 2 * sizeof(JSAMPLE), p_even, vl);
+            vsse8_v_u8m4(outptr, 2 * sizeof(JSAMPLE), p_odd, vl);
+            vsse8_v_u8m4(outptr + 1, 2 * sizeof(JSAMPLE), p_even, vl);
         }
 
         /* Last pixel component value in this row of the original image */
